@@ -2,6 +2,7 @@ package org.acme;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
 import io.smallrye.mutiny.GroupedMulti;
@@ -22,34 +23,34 @@ public class ProblemStarter implements QuarkusApplication {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    public static List<JsonNode> loadJsonListFromFile2(String filePath) {
-        try (InputStream inputStream = ProblemStarter.class.getClassLoader().getResourceAsStream(filePath)) {
-            if (inputStream == null) {
-                throw new IllegalArgumentException("File not found: " + filePath);
+    public static List<JsonNode> createProblematicJson() {
+        try {
+            JsonNode baseObject = mapper.readTree("{\"grouping_reason\":\"WHATEVER\"}");
+
+            JsonNode otherObject = mapper.readTree("{}");
+
+            ArrayNode arrayNode = mapper.createArrayNode();
+
+            for (int i = 0; i < 11; i++) {
+                arrayNode.add(baseObject.deepCopy()); // deepCopy to avoid reference sharing
+            }
+            //!!!!!!!!!!!!!!!!!!!!!!!!!! >129 WORKS OK
+            for (int i = 0; i < 130; i++) {
+                arrayNode.add(otherObject.deepCopy());
             }
 
-            String content = new Scanner(inputStream, StandardCharsets.UTF_8)
-                    .useDelimiter("\\A")
-                    .next();
-
-            try {
-                return List.of(mapper.readTree(content));
-            }
-            catch (Exception e){
-                System.out.println(e);
-            }
-
-            return List.of();
+            return List.of(arrayNode);
         }
         catch (Exception e){
             System.out.println(e);
         }
-        return List.of();
+
+        return null;
     }
 
     public Multi<Multi<JsonNode>> transform() {
 
-        var str = loadJsonListFromFile2("problematic.json");
+        var str = createProblematicJson();
 
         Multi<Uni<List<JsonNode>>> outer = Multi.createFrom().emitter(emitter -> {
             for (JsonNode sublist : str) {
